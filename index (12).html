@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noor Studio – Dashboard</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #e0c068;
+    --bg: #FDF6F8;
+    --surface: #FFFFFF;
+    --surface2: #FDEEF2;
+    --border: #F4C4D0;
+    --text: #3D1A26;
+    --text-muted: #9E6070;
+    --red: #C0394B;
+    --green: #4A7550;
+    --amber: #B07D2A;
+    --blush: #F4A7B9;
+    --blush-light: #FDEEF2;
+    --blush-dark: #5C1F3A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  #splash { position: fixed; inset: 0; background: #FDF6F8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 1000; }
+  #splash h1 { font-size: 2rem; font-weight: 300; letter-spacing: 2px; color: var(--blush-dark); }
+  #splash h1 span { color: var(--gold); }
+  .spinner { width: 36px; height: 36px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #splash-msg { color: var(--text-muted); font-size: 13px; }
+  #error-box { display: none; background: #FDE8EC; border: 1px solid var(--red); border-radius: 8px; padding: 16px 20px; max-width: 420px; text-align: center; }
+  #error-box p { color: var(--red); margin-bottom: 12px; line-height: 1.5; }
+  #error-box button { background: var(--red); color: white; border: none; border-radius: 6px; padding: 8px 20px; cursor: pointer; font-size: 13px; }
+
+  #app { display: none; }
+  header { background: #FFFFFF; border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 0; height: 52px; box-shadow: 0 1px 8px rgba(196,120,148,0.08); }
+  header h1 { font-size: 1.1rem; font-weight: 300; letter-spacing: 1px; margin-right: auto; }
+  header h1 span { color: var(--gold); }
+  .tabs { display: flex; gap: 0; }
+  .tab-btn { background: none; border: none; color: var(--text-muted); padding: 0 18px; height: 52px; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .badge { background: var(--blush); color: var(--blush-dark); border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+  .badge.green { background: var(--green); color: #fff; }
+  #refresh-btn { background: none; border: 1px solid var(--blush); color: var(--text-muted); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; margin-left: 16px; transition: all 0.2s; }
+  #refresh-btn:hover { border-color: var(--gold); color: var(--gold); }
+  #save-indicator { font-size: 11px; color: var(--green); margin-left: 12px; opacity: 0; transition: opacity 0.3s; }
+  #save-indicator.show { opacity: 1; }
+
+  .tab-panel { display: none; padding: 20px 24px; background: var(--bg); min-height: calc(100vh - 52px); }
+  .tab-panel.active { display: block; }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  .search-box { background: #FFFFFF; border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text); font-size: 13px; width: 240px; }
+  .search-box:focus { outline: none; border-color: var(--gold); }
+  .filter-select { background: #FFFFFF; border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px; cursor: pointer; }
+  .filter-select:focus { outline: none; border-color: var(--gold); }
+
+  .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); background: #FFFFFF; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #FFF0F4; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #FFF5F7; }
+  .name-cell { font-weight: 500; }
+  .date-cell { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+  .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+
+  .status-select { background: #FFFFFF; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .status-select.new { border-color: #ccc; }
+  .status-select.quoted { border-color: var(--gold); color: var(--gold); }
+  .status-select.interested { border-color: #5a9fd4; color: #5a9fd4; }
+  .status-select.booked { border-color: var(--green); color: var(--green); }
+  .status-select.not-interested { border-color: var(--red); color: var(--red); }
+  .status-select.no-reply { border-color: #bbb; color: #999; }
+
+  .quote-wrap { display: flex; gap: 5px; align-items: center; }
+  .quote-input { background: #FFFFFF; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; width: 80px; }
+  .quote-input:focus { outline: none; border-color: var(--gold); }
+  .save-btn { background: var(--gold); color: #FFFFFF; border: none; border-radius: 5px; padding: 4px 8px; font-size: 11px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .save-btn:hover { background: #B8912A; }
+  .del-btn { background: none; border: none; color: #C4A0A8; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+  .del-btn:hover { color: var(--red); background: #FDE8EC; }
+
+  .urgency-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot-red { background: var(--red); }
+  .dot-amber { background: var(--amber); }
+  .dot-green { background: var(--green); }
+  .outcome-select { background: #FFFFFF; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .notes-input { background: #FFFFFF; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; width: 160px; }
+  .notes-input:focus { outline: none; border-color: var(--gold); }
+
+  .stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-card { background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 140px; }
+  .stat-card label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+  .stat-card .val { font-size: 1.3rem; font-weight: 600; color: var(--gold); }
+  .deposit-input { background: #FFFFFF; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; width: 80px; }
+  .deposit-input:focus { outline: none; border-color: var(--gold); }
+  .payment-select { background: #FFFFFF; border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .balance { font-weight: 600; color: var(--gold); }
+  .date-label { font-size: 11px; color: var(--text-muted); margin-top: 5px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .date-input { background: #FFFFFF; border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; color: var(--text); font-size: 11px; cursor: pointer; }
+  .date-input:focus { outline: none; border-color: var(--gold); }
+
+  .add-btn { background: var(--gold); color: #FFFFFF; border: none; border-radius: 6px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .add-btn:hover { background: #B8912A; }
+
+  #add-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 600; align-items: center; justify-content: center; }
+  #add-modal.open { display: flex; }
+  .form-box { background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 560px; width: 92%; max-height: 85vh; overflow-y: auto; }
+  .form-box h2 { font-size: 1rem; font-weight: 500; margin-bottom: 18px; color: var(--gold); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .form-group input, .form-group select { background: #FFF8FA; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--gold); }
+  .form-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+  .submit-btn { background: var(--gold); color: #FFFFFF; border: none; border-radius: 6px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .submit-btn:hover { background: #B8912A; }
+
+  #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: center; justify-content: center; }
+  #modal.open { display: flex; }
+  .modal-box { background: #FFFFFF; border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal-box h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 4px; color: var(--text); }
+  .modal-meta { color: var(--text-muted); font-size: 12px; margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .modal-meta span { background: #FDEEF2; border-radius: 4px; padding: 2px 7px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .detail-item label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 2px; }
+  .detail-item p { font-size: 13px; }
+  .notes-block { background: #FDEEF2; border-radius: 6px; padding: 10px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-footer a { background: var(--gold); color: #fff; border-radius: 6px; padding: 8px 16px; text-decoration: none; font-size: 12px; font-weight: 600; }
+  .close-btn { background: #FDEEF2; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <h1><span>Noor</span> Studio</h1>
+  <div class="spinner" id="spin"></div>
+  <div id="splash-msg">Signing in…</div>
+  <div id="error-box">
+    <p id="error-msg">Something went wrong.</p>
+    <button onclick="location.reload()">Try Again</button>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1><span>Noor</span> Studio</h1>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('enquiries')">Enquiries <span class="badge" id="enq-badge">0</span></button>
+      <button class="tab-btn" onclick="showTab('calls')">Call List <span class="badge" id="call-badge">0</span></button>
+      <button class="tab-btn" onclick="showTab('bookings')">Bookings <span class="badge green" id="book-badge">0</span></button>
+    </div>
+    <span id="save-indicator">✓ Saved</span>
+    <button id="refresh-btn" onclick="loadEmails()">↻ Refresh</button>
+  </header>
+
+  <div class="tab-panel active" id="tab-enquiries">
+    <div class="toolbar">
+      <input class="search-box" type="text" id="enq-search" placeholder="Search name, email, venue…" oninput="renderEnquiries()">
+      <span id="search-hint" style="font-size:12px;color:var(--gold);"></span>
+      <button class="add-btn" onclick="openAddModal()">+ Add Enquiry</button>
+      <select class="filter-select" id="enq-filter" onchange="renderEnquiries()">
+        <option value="">All Statuses</option>
+        <option value="New">New</option>
+        <option value="Quoted">Quoted</option>
+        <option value="Interested">Interested</option>
+        <option value="Booked">Booked</option>
+        <option value="Not Interested">Not Interested</option>
+        <option value="No Reply">No Reply</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Service</th><th>Event Date</th><th>Venue</th>
+          <th>Received</th><th>Quote (£)</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="enq-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-calls">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Urgency</th><th>Name</th><th>Phone</th><th>Service</th>
+          <th>Event Date</th><th>Outcome</th><th>Notes</th>
+        </tr></thead>
+        <tbody id="call-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-bookings">
+    <div class="stats-row" id="book-stats"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Name</th><th>Phone</th><th>Event Date</th><th>Venue</th>
+          <th>Service</th><th>Quote (£)</th><th>Deposit (£)</th>
+          <th>Balance</th><th>Payment</th><th></th>
+        </tr></thead>
+        <tbody id="book-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="add-modal" onclick="closeAddModal(event)">
+  <div class="form-box">
+    <h2>Add Enquiry Manually</h2>
+    <div class="form-grid">
+      <div class="form-group"><label>First Name *</label><input type="text" id="af-first" placeholder="e.g. Amira"></div>
+      <div class="form-group"><label>Last Name</label><input type="text" id="af-last" placeholder="e.g. Khan"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="af-email" placeholder="client@email.com"></div>
+      <div class="form-group"><label>Phone</label><input type="text" id="af-phone" placeholder="07700 000000"></div>
+      <div class="form-group"><label>Event Date</label><input type="text" id="af-eventdate" placeholder="e.g. 12 September 2026"></div>
+      <div class="form-group"><label>Venue</label><input type="text" id="af-venue" placeholder="Venue name / location"></div>
+      <div class="form-group"><label>Service</label><input type="text" id="af-service" placeholder="e.g. Photography & Video"></div>
+      <div class="form-group"><label>Event Type</label><input type="text" id="af-eventtype" placeholder="e.g. Wedding"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="af-status">
+          <option>New</option><option>Quoted</option><option>Interested</option>
+          <option>Booked</option><option>Not Interested</option><option>No Reply</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Quote (£)</label><input type="number" id="af-quote" placeholder="0"></div>
+      <div class="form-group full"><label>Additional Notes</label><input type="text" id="af-notes" placeholder="Any extra info…"></div>
+    </div>
+    <div class="form-footer">
+      <button class="close-btn" onclick="closeAddModalDirect()">Cancel</button>
+      <button class="submit-btn" onclick="submitAddEnquiry()">Add Enquiry</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <h2 id="m-name"></h2>
+    <div class="modal-meta" id="m-meta"></div>
+    <div class="detail-grid" id="m-grid"></div>
+    <div id="m-notes-wrap"><div class="notes-block" id="m-notes"></div></div>
+    <div class="modal-footer">
+      <button class="close-btn" onclick="closeModalDirect()">Close</button>
+      <a id="m-thread" href="#" target="_blank">Open in Gmail ↗</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLIENT_ID   = '834728017363-30ng4ab7c932lke8go6p6dth1iqv45n9.apps.googleusercontent.com';
+const SHEET_ID    = '1X1Lk2JRAgHDxqLawpe-G9hwIq-CtwkxkCJLVcS5Dq50';
+const SCOPES      = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/spreadsheets';
+
+let accessToken = null;
+let tokenClient = null;
+let allEnquiries = [];
+
+// ── Sheet data (loaded from Google Sheets) ────────────────────────────────────
+let statuses     = {};
+let quotes       = {};
+let callLogs     = {};
+let deposits     = {};
+let payments     = {};
+let deleted      = {};
+let manualEntries = [];
+let depositDates = {};
+let balanceDates = {};
+let bookDeleted  = {};
+
+// ── Sheets helpers ────────────────────────────────────────────────────────────
+const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID;
+
+async function sheetsFetch(path, opts = {}) {
+  const url = SHEETS_BASE + path;
+  const r = await fetch(url, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', ...(opts.headers||{}) }
+  });
+  if (r.status === 401) throw { code: 401 };
+  if (!r.ok) { const t = await r.text(); throw new Error('Sheets error ' + r.status + ': ' + t); }
+  if (r.status === 204) return {};
+  return r.json();
+}
+
+// Ensure all required sheets exist
+async function ensureSheets() {
+  const meta = await sheetsFetch('?fields=sheets.properties.title');
+  const existing = meta.sheets.map(s => s.properties.title);
+  const needed = ['statuses','quotes','callLogs','deposits','payments','deleted','manualEntries','depositDates','balanceDates','bookDeleted'];
+  const toCreate = needed.filter(n => !existing.includes(n));
+  if (!toCreate.length) return;
+  await sheetsFetch(':batchUpdate', {
+    method: 'POST',
+    body: JSON.stringify({ requests: toCreate.map(title => ({ addSheet: { properties: { title } } })) })
+  });
+}
+
+async function readSheet(sheetName) {
+  try {
+    const r = await sheetsFetch('/values/' + sheetName);
+    return r.values || [];
+  } catch(e) { return []; }
+}
+
+async function writeSheet(sheetName, values) {
+  await sheetsFetch('/values/' + sheetName + '?valueInputOption=RAW', {
+    method: 'PUT',
+    body: JSON.stringify({ range: sheetName, majorDimension: 'ROWS', values })
+  });
+}
+
+// Load all data from Google Sheets
+async function loadSheetData() {
+  setSplashMsg('Loading your data…');
+  await ensureSheets();
+
+  // statuses: [[id, status], ...]
+  const statusRows = await readSheet('statuses');
+  statuses = {};
+  statusRows.forEach(r => { if (r[0]) statuses[r[0]] = r[1] || 'New'; });
+
+  // quotes: [[id, quote], ...]
+  const quoteRows = await readSheet('quotes');
+  quotes = {};
+  quoteRows.forEach(r => { if (r[0]) quotes[r[0]] = r[1] || ''; });
+
+  // callLogs: [[id, outcome, notes], ...]
+  const callRows = await readSheet('callLogs');
+  callLogs = {};
+  callRows.forEach(r => { if (r[0]) callLogs[r[0]] = { outcome: r[1]||'', notes: r[2]||'' }; });
+
+  // deposits: [[id, amount], ...]
+  const depRows = await readSheet('deposits');
+  deposits = {};
+  depRows.forEach(r => { if (r[0]) deposits[r[0]] = r[1] || ''; });
+
+  // payments: [[id, status], ...]
+  const payRows = await readSheet('payments');
+  payments = {};
+  payRows.forEach(r => { if (r[0]) payments[r[0]] = r[1] || 'Pending'; });
+
+  // deleted: [[id], ...]
+  const delRows = await readSheet('deleted');
+  deleted = {};
+  delRows.forEach(r => { if (r[0]) deleted[r[0]] = true; });
+
+  // manualEntries: [[json], ...]
+  const manRows = await readSheet('manualEntries');
+  manualEntries = [];
+  manRows.forEach(r => { try { if (r[0]) manualEntries.push(JSON.parse(r[0])); } catch(e){} });
+
+  // depositDates: [[id, date], ...]
+  const ddRows = await readSheet('depositDates');
+  depositDates = {};
+  ddRows.forEach(r => { if (r[0]) depositDates[r[0]] = r[1] || ''; });
+
+  // balanceDates: [[id, date], ...]
+  const bdRows = await readSheet('balanceDates');
+  balanceDates = {};
+  bdRows.forEach(r => { if (r[0]) balanceDates[r[0]] = r[1] || ''; });
+
+  // bookDeleted: [[id], ...]
+  const bkRows = await readSheet('bookDeleted');
+  bookDeleted = {};
+  bkRows.forEach(r => { if (r[0]) bookDeleted[r[0]] = true; });
+}
+
+// Save all data to Google Sheets
+async function saveAll() {
+  try {
+    await Promise.all([
+      writeSheet('statuses',     Object.entries(statuses)),
+      writeSheet('quotes',       Object.entries(quotes)),
+      writeSheet('callLogs',     Object.entries(callLogs).map(([id,l]) => [id, l.outcome||'', l.notes||''])),
+      writeSheet('deposits',     Object.entries(deposits)),
+      writeSheet('payments',     Object.entries(payments)),
+      writeSheet('deleted',      Object.keys(deleted).map(id => [id])),
+      writeSheet('manualEntries', manualEntries.map(e => [JSON.stringify(e)])),
+      writeSheet('depositDates', Object.entries(depositDates)),
+      writeSheet('balanceDates', Object.entries(balanceDates)),
+      writeSheet('bookDeleted',  Object.keys(bookDeleted).map(id => [id])),
+    ]);
+    showSaved();
+  } catch(e) {
+    console.error('Save failed:', e);
+  }
+}
+
+function showSaved() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Splash helpers ────────────────────────────────────────────────────────────
+function setSplashMsg(msg) { document.getElementById('splash-msg').textContent = msg; }
+function showError(msg) {
+  document.getElementById('spin').style.display = 'none';
+  document.getElementById('splash-msg').style.display = 'none';
+  document.getElementById('error-msg').textContent = msg;
+  document.getElementById('error-box').style.display = 'block';
+}
+function showApp() {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function initAuth() {
+  setSplashMsg('Connecting to Google…');
+  let attempts = 0;
+  const wait = setInterval(() => {
+    attempts++;
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+      clearInterval(wait); startAuth();
+    } else if (attempts > 50) {
+      clearInterval(wait);
+      showError('Could not load Google Sign-In. Check your connection and try again.');
+    }
+  }, 100);
+}
+
+function startAuth() {
+  try {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID, scope: SCOPES,
+      callback: handleToken,
+      error_callback: (err) => showError('Google sign-in failed: ' + (err.message || err.type || 'unknown'))
+    });
+    setSplashMsg('Waiting for Google sign-in…');
+    tokenClient.requestAccessToken({ prompt: '' });
+  } catch(e) { showError('Auth setup failed: ' + e.message); }
+}
+
+async function handleToken(resp) {
+  if (resp.error) {
+    if (resp.error === 'interaction_required' || resp.error === 'consent_required') {
+      tokenClient.requestAccessToken({ prompt: 'consent' }); return;
+    }
+    showError('Sign-in error: ' + resp.error); return;
+  }
+  accessToken = resp.access_token;
+  try {
+    await loadSheetData();
+    await loadEmails();
+  } catch(e) {
+    if (e.code === 401) { tokenClient.requestAccessToken({ prompt: 'select_account' }); }
+    else showError('Failed to load data: ' + e.message);
+  }
+}
+
+// ── Gmail API ─────────────────────────────────────────────────────────────────
+async function gmailFetch(path, params = {}) {
+  const url = new URL('https://gmail.googleapis.com/gmail/v1/' + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await fetch(url.toString(), { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (r.status === 401) throw { code: 401 };
+  if (!r.ok) { const t = await r.text(); throw new Error('Gmail error ' + r.status + ': ' + t); }
+  return r.json();
+}
+
+async function loadEmails() {
+  const isVisible = document.getElementById('app').style.display !== 'none';
+  if (!isVisible) {
+    setSplashMsg('Loading enquiries…');
+  } else {
+    document.getElementById('refresh-btn').textContent = '↻ Loading…';
+    document.getElementById('refresh-btn').disabled = true;
+  }
+
+  try {
+    const data = await gmailFetch('users/me/messages', { q: 'subject:"New message from"', maxResults: 500 });
+    if (!data.messages || !data.messages.length) {
+      allEnquiries = manualEntries.filter(e => !deleted[e.id]);
+      renderAll(); showApp(); return;
+    }
+
+    const ids = data.messages.map(m => m.id);
+    const batches = [];
+    for (let i = 0; i < ids.length; i += 10) batches.push(ids.slice(i, i + 10));
+    const allMessages = [];
+    for (const batch of batches) {
+      const results = await Promise.all(batch.map(id => gmailFetch('users/me/messages/' + id, { format: 'full' }).catch(() => null)));
+      allMessages.push(...results.filter(Boolean));
+    }
+
+    const parsed = allMessages.map(parseMessage).filter(Boolean);
+    const seen = {};
+    const deduped = [];
+    for (const e of parsed) {
+      const key = e.email.toLowerCase() + '::' + e.eventDate.replace(/\s/g,'').toLowerCase();
+      if (!seen[key]) { seen[key] = true; deduped.push(e); }
+    }
+    deduped.sort((a, b) => b.ts - a.ts);
+
+    const combined = [...deduped, ...manualEntries].filter(e => !deleted[e.id]);
+    combined.sort((a, b) => b.ts - a.ts);
+    allEnquiries = combined;
+
+    renderAll(); showApp();
+  } catch(e) {
+    if (e.code === 401) { accessToken = null; tokenClient.requestAccessToken({ prompt: 'select_account' }); }
+    else showError('Failed to load emails: ' + e.message);
+  } finally {
+    document.getElementById('refresh-btn').textContent = '↻ Refresh';
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+// ── Email parsing ─────────────────────────────────────────────────────────────
+function decodeBase64url(str) { try { return atob(str.replace(/-/g,'+').replace(/_/g,'/')); } catch(e) { return ''; } }
+function getHtmlBody(parts) {
+  if (!parts) return '';
+  for (const p of parts) {
+    if (p.mimeType === 'text/html' && p.body && p.body.data) return decodeBase64url(p.body.data);
+    if (p.parts) { const r = getHtmlBody(p.parts); if (r) return r; }
+  }
+  return '';
+}
+
+function parseMessage(msg) {
+  try {
+    const headers = {};
+    (msg.payload.headers||[]).forEach(h => headers[h.name.toLowerCase()] = h.value);
+    const ts = new Date(headers['date']||'').getTime() || msg.internalDate*1;
+    const threadId = msg.threadId || msg.id;
+    let html = msg.payload.mimeType === 'text/html' && msg.payload.body?.data
+      ? decodeBase64url(msg.payload.body.data)
+      : getHtmlBody(msg.payload.parts||[]);
+    if (!html) return null;
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const fields = {};
+    doc.querySelectorAll('p').forEach(p => {
+      const b = p.querySelector('b'); if (!b) return;
+      const key = b.textContent.replace(':','').trim().toLowerCase();
+      const val = p.textContent.replace(b.textContent,'').trim();
+      if (val) fields[key] = val;
+    });
+    doc.querySelectorAll('tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td,th');
+      if (cells.length >= 2) { const k = cells[0].textContent.replace(':','').trim().toLowerCase(); const v = cells[1].textContent.trim(); if (k&&v) fields[k]=v; }
+    });
+
+    const firstName = fields['first name']||fields['firstname']||'';
+    const lastName  = fields['last name'] ||fields['lastname'] ||'';
+    const name = (firstName+' '+lastName).trim() || (headers['subject']||'').replace('New message from','').trim() || 'Unknown';
+    const d = new Date(ts);
+    return {
+      id: msg.id, ts, name,
+      email:     fields['email']||fields['email address']||'',
+      phone:     fields['contact number']||fields['phone']||fields['telephone']||fields['mobile']||'',
+      eventDate: fields['event date']||fields['date']||'',
+      startTime: fields['start time']||'',
+      endTime:   fields['end time']||'',
+      venue:     fields['venue location']||fields['venue']||'',
+      guests:    fields['number of guests']||fields['guests']||'',
+      service:   fields['service required']||fields['service']||'',
+      house1:    fields['house coverage']||'',
+      house2:    fields['2nd house coverage']||fields['second house coverage']||'',
+      eventType: fields['event type']||'',
+      additional:fields['any additional information']||fields['additional information']||fields['additional']||'',
+      dateReceived: d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),
+      gmailUrl: 'https://mail.google.com/mail/u/0/#inbox/'+threadId,
+      subject: headers['subject']||''
+    };
+  } catch(e) { return null; }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function renderAll() { renderEnquiries(); renderCalls(); renderBookings(); }
+function getStatus(id) { return statuses[id] || 'New'; }
+function getStatusClass(s) {
+  return {'New':'new','Quoted':'quoted','Interested':'interested','Booked':'booked','Not Interested':'not-interested','No Reply':'no-reply'}[s]||'new';
+}
+
+function renderEnquiries() {
+  const q = (document.getElementById('enq-search').value||'').toLowerCase();
+  const f = document.getElementById('enq-filter').value;
+  const ago30 = Date.now() - 30*24*60*60*1000;
+  let rows = allEnquiries.filter(e => {
+    const st = getStatus(e.id);
+    if (f && st !== f) return false;
+    if (!q && e.ts < ago30) return false;
+    if (q && !(e.name+e.email+e.venue+e.service+e.eventDate).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const hint = document.getElementById('search-hint');
+  if (hint) hint.textContent = q ? 'Searching all time — '+rows.length+' result'+(rows.length!==1?'s':'') : '';
+  document.getElementById('enq-badge').textContent = rows.length;
+  const tbody = document.getElementById('enq-body');
+  if (!rows.length) { tbody.innerHTML='<tr class="empty-row"><td colspan="8">No enquiries found</td></tr>'; return; }
+  tbody.innerHTML = rows.map(e => {
+    const st = getStatus(e.id);
+    const q = quotes[e.id]||'';
+    return `<tr>
+      <td class="name-cell"><a href="#" onclick="openModal('${e.id}');return false;" style="color:var(--text);text-decoration:none;">${esc(e.name)}</a></td>
+      <td>${esc(e.service)}</td>
+      <td class="date-cell">${esc(e.eventDate)}</td>
+      <td>${esc(e.venue)}</td>
+      <td class="date-cell">${esc(e.dateReceived)}</td>
+      <td><div class="quote-wrap">
+        <input class="quote-input" type="number" placeholder="0" value="${esc(q)}" id="qi-${e.id}" onkeydown="if(event.key==='Enter')saveQuote('${e.id}')">
+        <button class="save-btn" onclick="saveQuote('${e.id}')">Save</button>
+      </div></td>
+      <td><select class="status-select ${getStatusClass(st)}" onchange="setStatus('${e.id}',this.value)">
+        ${['New','Quoted','Interested','Booked','Not Interested','No Reply'].map(s=>`<option${s===st?' selected':''}>${s}</option>`).join('')}
+      </select></td>
+      <td><button class="del-btn" onclick="deleteRow('${e.id}')" title="Remove">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCalls() {
+  const now = Date.now();
+  const cutoff = now - 14*24*60*60*1000;
+  let rows = allEnquiries.filter(e => e.ts >= cutoff);
+  rows.sort((a,b) => a.ts - b.ts);
+  document.getElementById('call-badge').textContent = rows.length;
+  const tbody = document.getElementById('call-body');
+  if (!rows.length) { tbody.innerHTML='<tr class="empty-row"><td colspan="7">No calls to make</td></tr>'; return; }
+  tbody.innerHTML = rows.map(e => {
+    const h = (now-e.ts)/(1000*60*60);
+    const dot = h>48?'dot-red':h>24?'dot-amber':'dot-green';
+    const log = callLogs[e.id]||{};
+    return `<tr>
+      <td><span class="urgency-dot ${dot}"></span>${h>48?'48h+':h>24?'24-48h':'<24h'}</td>
+      <td class="name-cell">${esc(e.name)}</td>
+      <td>${esc(e.phone)}</td>
+      <td>${esc(e.service)}</td>
+      <td class="date-cell">${esc(e.eventDate)}</td>
+      <td><select class="outcome-select" onchange="setOutcome('${e.id}',this.value)">
+        <option value="">—</option>
+        ${['No Answer','Interested','Not Interested','Call Back','Booked'].map(o=>`<option${o===(log.outcome||'')?' selected':''}>${o}</option>`).join('')}
+      </select></td>
+      <td><input class="notes-input" type="text" placeholder="Add note…" value="${esc(log.notes||'')}" onblur="setNotes('${e.id}',this.value)"></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderBookings() {
+  const booked = allEnquiries.filter(e => getStatus(e.id)==='Booked' && !bookDeleted[e.id]);
+  document.getElementById('book-badge').textContent = booked.length;
+  const pending  = booked.filter(e=>(payments[e.id]||'Pending')==='Pending').length;
+  const depPaid  = booked.filter(e=>payments[e.id]==='Deposit Paid').length;
+  const fullPaid = booked.filter(e=>payments[e.id]==='Fully Paid').length;
+  document.getElementById('book-stats').innerHTML = `
+    <div class="stat-card"><label>Total Booked</label><div class="val">${booked.length}</div></div>
+    <div class="stat-card"><label>Pending</label><div class="val" style="color:var(--amber)">${pending}</div></div>
+    <div class="stat-card"><label>Deposit Paid</label><div class="val" style="color:#5a9fd4">${depPaid}</div></div>
+    <div class="stat-card"><label>Fully Paid</label><div class="val" style="color:var(--green)">${fullPaid}</div></div>`;
+  const tbody = document.getElementById('book-body');
+  if (!booked.length) { tbody.innerHTML='<tr class="empty-row"><td colspan="10">No bookings yet</td></tr>'; return; }
+  tbody.innerHTML = booked.map(e => {
+    const q   = parseFloat(quotes[e.id])||0;
+    const dep = parseFloat(deposits[e.id])||0;
+    const bal = q - dep;
+    const pay = payments[e.id]||'Pending';
+    const depDate = depositDates[e.id]||'';
+    const balDate = balanceDates[e.id]||'';
+    const depDateHtml = dep>0 ? `<div class="date-label">Paid on: <input class="date-input" type="date" value="${esc(depDate)}" onchange="setDepositDate('${e.id}',this.value)"></div>` : '';
+    const balDateHtml = pay==='Fully Paid' ? `<div class="date-label">Paid on: <input class="date-input" type="date" value="${esc(balDate)}" onchange="setBalanceDate('${e.id}',this.value)"></div>` : '';
+    return `<tr>
+      <td class="name-cell">${esc(e.name)}</td>
+      <td>${esc(e.phone)}</td>
+      <td class="date-cell">${esc(e.eventDate)}</td>
+      <td>${esc(e.venue)}</td>
+      <td>${esc(e.service)}</td>
+      <td>£${q?q.toLocaleString():'—'}</td>
+      <td>
+        <div class="quote-wrap">
+          <input class="deposit-input" type="number" placeholder="0" value="${esc(deposits[e.id]||'')}" id="di-${e.id}" onkeydown="if(event.key==='Enter')saveDeposit('${e.id}')">
+          <button class="save-btn" onclick="saveDeposit('${e.id}')">Save</button>
+        </div>${depDateHtml}
+      </td>
+      <td class="balance">£${q?bal.toLocaleString():'—'}${balDateHtml}</td>
+      <td><select class="payment-select" onchange="setPayment('${e.id}',this.value)">
+        ${['Pending','Deposit Paid','Fully Paid'].map(p=>`<option${p===pay?' selected':''}>${p}</option>`).join('')}
+      </select></td>
+      <td><button class="del-btn" onclick="deleteBooking('${e.id}')" title="Remove booking">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function saveQuote(id) {
+  const val = document.getElementById('qi-'+id).value;
+  quotes[id] = val;
+  if (val && getStatus(id)==='New') statuses[id] = 'Quoted';
+  saveAll(); renderAll();
+}
+function setStatus(id, val) { statuses[id]=val; saveAll(); renderAll(); }
+function deleteRow(id) { deleted[id]=true; allEnquiries=allEnquiries.filter(e=>e.id!==id); saveAll(); renderAll(); }
+function setOutcome(id, val) {
+  if (!callLogs[id]) callLogs[id]={};
+  callLogs[id].outcome=val; saveAll();
+  if (val==='Booked') { statuses[id]='Booked'; renderAll(); }
+}
+function setNotes(id, val) { if (!callLogs[id]) callLogs[id]={}; callLogs[id].notes=val; saveAll(); }
+function saveDeposit(id) { deposits[id]=document.getElementById('di-'+id).value; saveAll(); renderBookings(); }
+function setPayment(id, val) { payments[id]=val; saveAll(); renderBookings(); }
+function deleteBooking(id) {
+  if (!confirm('Remove this booking? The enquiry will still exist.')) return;
+  bookDeleted[id]=true; saveAll(); renderBookings();
+}
+function setDepositDate(id, val) { depositDates[id]=val; saveAll(); }
+function setBalanceDate(id, val) { balanceDates[id]=val; saveAll(); }
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── Enquiry detail modal ──────────────────────────────────────────────────────
+function openModal(id) {
+  const e = allEnquiries.find(x=>x.id===id); if (!e) return;
+  document.getElementById('m-name').textContent = e.name;
+  document.getElementById('m-meta').innerHTML = [e.dateReceived?'Received '+e.dateReceived:'',e.email,e.phone].filter(Boolean).map(s=>'<span>'+esc(s)+'</span>').join('');
+  const fields = [['Email',e.email],['Phone',e.phone],['Event Date',e.eventDate],['Event Type',e.eventType],['Start Time',e.startTime],['End Time',e.endTime],['Venue',e.venue],['House Coverage',e.house1],['2nd House',e.house2],['Guests',e.guests],['Service',e.service],['Additional',e.additional]].filter(f=>f[1]);
+  document.getElementById('m-grid').innerHTML = fields.map(f=>`<div class="detail-item"><label>${esc(f[0])}</label><p>${esc(f[1])}</p></div>`).join('');
+  const log = callLogs[id];
+  const nw = document.getElementById('m-notes-wrap');
+  if (log&&log.notes) { document.getElementById('m-notes').textContent=log.notes; nw.style.display='block'; } else { nw.style.display='none'; }
+  const gb = document.getElementById('m-thread');
+  if (e.manual||!e.gmailUrl) gb.style.display='none'; else { gb.style.display=''; gb.href=e.gmailUrl; }
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(ev) { if (ev.target===document.getElementById('modal')) closeModalDirect(); }
+function closeModalDirect() { document.getElementById('modal').classList.remove('open'); }
+
+// ── Manual enquiry ────────────────────────────────────────────────────────────
+function openAddModal() {
+  ['af-first','af-last','af-email','af-phone','af-eventdate','af-venue','af-service','af-eventtype','af-quote','af-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('af-status').value='New';
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddModal(ev) { if (ev.target===document.getElementById('add-modal')) closeAddModalDirect(); }
+function closeAddModalDirect() { document.getElementById('add-modal').classList.remove('open'); }
+function submitAddEnquiry() {
+  const first = document.getElementById('af-first').value.trim();
+  if (!first) { alert('Please enter at least a first name.'); return; }
+  const last=document.getElementById('af-last').value.trim();
+  const id='manual_'+Date.now(), ts=Date.now();
+  const entry = {
+    id, ts, name:(first+' '+last).trim(),
+    email:document.getElementById('af-email').value.trim(),
+    phone:document.getElementById('af-phone').value.trim(),
+    eventDate:document.getElementById('af-eventdate').value.trim(),
+    venue:document.getElementById('af-venue').value.trim(),
+    service:document.getElementById('af-service').value.trim(),
+    eventType:document.getElementById('af-eventtype').value.trim(),
+    dateReceived:new Date(ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),
+    gmailUrl:'', subject:'', manual:true,
+    startTime:'',endTime:'',house1:'',house2:'',guests:'',
+    additional:document.getElementById('af-notes').value.trim()
+  };
+  const status=document.getElementById('af-status').value;
+  const quote=document.getElementById('af-quote').value.trim();
+  const notes=document.getElementById('af-notes').value.trim();
+  manualEntries.push(entry);
+  if (status!=='New') statuses[id]=status;
+  if (quote) quotes[id]=quote;
+  if (notes) { if (!callLogs[id]) callLogs[id]={}; callLogs[id].notes=notes; }
+  saveAll();
+  allEnquiries.unshift(entry);
+  renderAll();
+  closeAddModalDirect();
+}
+
+window.addEventListener('load', initAuth);
+</script>
+</body>
+</html>
