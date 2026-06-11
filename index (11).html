@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noor Studio – Dashboard</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #e0c068;
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --text-muted: #888;
+    --red: #e05555;
+    --green: #4caf7d;
+    --amber: #e0a040;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* SPLASH */
+  #splash { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 1000; }
+  #splash h1 { font-size: 2rem; font-weight: 300; letter-spacing: 2px; }
+  #splash h1 span { color: var(--gold); }
+  .spinner { width: 36px; height: 36px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #splash-msg { color: var(--text-muted); font-size: 13px; }
+  #error-box { display: none; background: #1a0808; border: 1px solid var(--red); border-radius: 8px; padding: 16px 20px; max-width: 420px; text-align: center; }
+  #error-box p { color: #f08080; margin-bottom: 12px; line-height: 1.5; }
+  #error-box button { background: var(--red); color: white; border: none; border-radius: 6px; padding: 8px 20px; cursor: pointer; font-size: 13px; }
+
+  /* APP */
+  #app { display: none; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 0; height: 52px; }
+  header h1 { font-size: 1.1rem; font-weight: 300; letter-spacing: 1px; margin-right: auto; }
+  header h1 span { color: var(--gold); }
+  .tabs { display: flex; gap: 0; }
+  .tab-btn { background: none; border: none; color: var(--text-muted); padding: 0 18px; height: 52px; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; transition: all 0.2s; position: relative; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .badge { background: var(--gold); color: #000; border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 600; margin-left: 5px; }
+  .badge.green { background: var(--green); }
+  #refresh-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; margin-left: 16px; transition: all 0.2s; }
+  #refresh-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .tab-panel { display: none; padding: 20px 24px; }
+  .tab-panel.active { display: block; }
+
+  /* SEARCH BAR */
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text); font-size: 13px; width: 240px; }
+  .search-box:focus { outline: none; border-color: var(--gold); }
+  .filter-select { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px; cursor: pointer; }
+  .filter-select:focus { outline: none; border-color: var(--gold); }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface); color: var(--text-muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .name-cell { font-weight: 500; }
+  .date-cell { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+  .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+
+  /* STATUS */
+  .status-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .status-select:focus { outline: none; }
+  .status-select.new { border-color: #555; }
+  .status-select.quoted { border-color: var(--gold); color: var(--gold); }
+  .status-select.interested { border-color: #6ab4ff; color: #6ab4ff; }
+  .status-select.booked { border-color: var(--green); color: var(--green); }
+  .status-select.not-interested { border-color: var(--red); color: var(--red); }
+  .status-select.no-reply { border-color: #666; color: #888; }
+
+  /* QUOTE INPUT */
+  .quote-wrap { display: flex; gap: 5px; align-items: center; }
+  .quote-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; width: 80px; }
+  .quote-input:focus { outline: none; border-color: var(--gold); }
+  .save-btn { background: var(--gold); color: #000; border: none; border-radius: 5px; padding: 4px 8px; font-size: 11px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .save-btn:hover { background: var(--gold-light); }
+  .del-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+  .del-btn:hover { color: var(--red); background: #1a0808; }
+
+  /* CALL LIST */
+  .urgency-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot-red { background: var(--red); }
+  .dot-amber { background: var(--amber); }
+  .dot-green { background: var(--green); }
+  .outcome-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .notes-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; width: 160px; }
+  .notes-input:focus { outline: none; border-color: var(--gold); }
+
+  /* BOOKINGS */
+  .stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; flex: 1; min-width: 140px; }
+  .stat-card label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+  .stat-card .val { font-size: 1.3rem; font-weight: 600; color: var(--gold); }
+  .deposit-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; width: 80px; }
+  .deposit-input:focus { outline: none; border-color: var(--gold); }
+  .payment-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .balance { font-weight: 600; color: var(--gold); }
+  .date-label { font-size: 11px; color: var(--text-muted); margin-top: 5px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .date-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; color: var(--text); font-size: 11px; cursor: pointer; }
+  .date-input:focus { outline: none; border-color: var(--gold); }
+
+  /* MODAL */
+  #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 500; align-items: center; justify-content: center; }
+  #modal.open { display: flex; }
+  .modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal-box h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 4px; }
+  .modal-meta { color: var(--text-muted); font-size: 12px; margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .modal-meta span { background: var(--surface2); border-radius: 4px; padding: 2px 7px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .detail-item label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 2px; }
+  .detail-item p { font-size: 13px; }
+  .notes-block { background: var(--surface2); border-radius: 6px; padding: 10px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-footer a { background: var(--gold); color: #000; border-radius: 6px; padding: 8px 16px; text-decoration: none; font-size: 12px; font-weight: 600; }
+  .close-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <h1><span>Noor</span> Studio</h1>
+  <div class="spinner" id="spin"></div>
+  <div id="splash-msg">Signing in…</div>
+  <div id="error-box">
+    <p id="error-msg">Something went wrong.</p>
+    <button onclick="location.reload()">Try Again</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <h1><span>Noor</span> Studio</h1>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('enquiries')">Enquiries <span class="badge" id="enq-badge">0</span></button>
+      <button class="tab-btn" onclick="showTab('calls')">Call List <span class="badge" id="call-badge">0</span></button>
+      <button class="tab-btn" onclick="showTab('bookings')">Bookings <span class="badge green" id="book-badge">0</span></button>
+    </div>
+    <button id="refresh-btn" onclick="loadEmails()">↻ Refresh</button>
+  </header>
+
+  <!-- ENQUIRIES TAB -->
+  <div class="tab-panel active" id="tab-enquiries">
+    <div class="toolbar">
+      <input class="search-box" type="text" id="enq-search" placeholder="Search name, email, venue…" oninput="renderEnquiries()">
+      <span id="search-hint" style="font-size:12px;color:var(--gold);"></span>
+      <select class="filter-select" id="enq-filter" onchange="renderEnquiries()">
+        <option value="">All Statuses</option>
+        <option value="New">New</option>
+        <option value="Quoted">Quoted</option>
+        <option value="Interested">Interested</option>
+        <option value="Booked">Booked</option>
+        <option value="Not Interested">Not Interested</option>
+        <option value="No Reply">No Reply</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Service</th><th>Event Date</th><th>Venue</th>
+            <th>Received</th><th>Quote (£)</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="enq-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CALLS TAB -->
+  <div class="tab-panel" id="tab-calls">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Urgency</th><th>Name</th><th>Phone</th><th>Service</th>
+            <th>Event Date</th><th>Outcome</th><th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="call-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- BOOKINGS TAB -->
+  <div class="tab-panel" id="tab-bookings">
+    <div class="stats-row" id="book-stats"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Phone</th><th>Event Date</th><th>Venue</th>
+            <th>Service</th><th>Quote (£)</th><th>Deposit (£)</th>
+            <th>Balance</th><th>Payment</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="book-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <h2 id="m-name"></h2>
+    <div class="modal-meta" id="m-meta"></div>
+    <div class="detail-grid" id="m-grid"></div>
+    <div id="m-notes-wrap"><div class="notes-block" id="m-notes"></div></div>
+    <div class="modal-footer">
+      <button class="close-btn" onclick="closeModalDirect()">Close</button>
+      <a id="m-thread" href="#" target="_blank">Open in Gmail ↗</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CLIENT_ID = '834728017363-30ng4ab7c932lke8go6p6dth1iqv45n9.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let accessToken = null;
+let tokenClient = null;
+let allEnquiries = [];
+
+// localStorage helpers
+function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch(e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+
+let statuses      = lsGet('ns_statuses')      || {};
+let quotes        = lsGet('ns_quotes')        || {};
+let callLogs      = lsGet('ns_calllogs')      || {};
+let deposits      = lsGet('ns_deposits')      || {};
+let payments      = lsGet('ns_payments')      || {};
+let deleted       = lsGet('ns_deleted')       || {};
+let depositDates  = lsGet('ns_depositdates')  || {};
+let balanceDates  = lsGet('ns_balancedates')  || {};
+let bookDeleted   = lsGet('ns_bookdeleted')   || {};
+
+function saveAll() {
+  lsSet('ns_statuses', statuses);
+  lsSet('ns_quotes', quotes);
+  lsSet('ns_calllogs', callLogs);
+  lsSet('ns_deposits', deposits);
+  lsSet('ns_payments', payments);
+  lsSet('ns_deleted', deleted);
+  lsSet('ns_depositdates', depositDates);
+  lsSet('ns_balancedates', balanceDates);
+  lsSet('ns_bookdeleted', bookDeleted);
+}
+
+// ─── SPLASH HELPERS ──────────────────────────────────────────────────────────
+function setSplashMsg(msg) {
+  document.getElementById('splash-msg').textContent = msg;
+}
+
+function showError(msg) {
+  document.getElementById('spin').style.display = 'none';
+  document.getElementById('splash-msg').style.display = 'none';
+  const eb = document.getElementById('error-box');
+  document.getElementById('error-msg').textContent = msg;
+  eb.style.display = 'block';
+}
+
+function showApp() {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function initAuth() {
+  setSplashMsg('Connecting to Google…');
+
+  // Wait for GSI to be ready
+  let attempts = 0;
+  const waitForGSI = setInterval(() => {
+    attempts++;
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+      clearInterval(waitForGSI);
+      startAuth();
+    } else if (attempts > 50) {
+      clearInterval(waitForGSI);
+      showError('Could not load Google Sign-In. Check your internet connection and try again.');
+    }
+  }, 100);
+}
+
+function startAuth() {
+  try {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: handleToken,
+      error_callback: (err) => {
+        showError('Google sign-in failed: ' + (err.message || err.type || 'unknown error'));
+      }
+    });
+
+    setSplashMsg('Waiting for Google sign-in…');
+    tokenClient.requestAccessToken({ prompt: '' });
+  } catch(e) {
+    showError('Auth setup failed: ' + e.message);
+  }
+}
+
+function handleToken(resp) {
+  if (resp.error) {
+    // If silent auth failed, try with prompt
+    if (resp.error === 'interaction_required' || resp.error === 'consent_required') {
+      setSplashMsg('Please sign in with Google…');
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+      return;
+    }
+    showError('Sign-in error: ' + resp.error + (resp.error_description ? ' – ' + resp.error_description : ''));
+    return;
+  }
+  accessToken = resp.access_token;
+  setSplashMsg('Loading enquiries…');
+  loadEmails();
+}
+
+// ─── GMAIL API ────────────────────────────────────────────────────────────────
+async function gmailFetch(path, params = {}) {
+  const url = new URL('https://gmail.googleapis.com/gmail/v1/' + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const r = await fetch(url.toString(), {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  if (r.status === 401) throw { code: 401, message: 'Token expired' };
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error('Gmail API error ' + r.status + ': ' + txt);
+  }
+  return r.json();
+}
+
+async function loadEmails() {
+  // Show spinner overlay if app already visible
+  const isAppVisible = document.getElementById('app').style.display !== 'none';
+  if (!isAppVisible) {
+    document.getElementById('splash').style.display = 'flex';
+    document.getElementById('spin').style.display = 'block';
+    document.getElementById('splash-msg').style.display = 'block';
+    document.getElementById('splash-msg').textContent = 'Loading enquiries…';
+  } else {
+    document.getElementById('refresh-btn').textContent = '↻ Loading…';
+    document.getElementById('refresh-btn').disabled = true;
+  }
+
+  try {
+    // Load all emails; display filters to 30 days unless user is searching
+    const data = await gmailFetch('users/me/messages', {
+      q: 'subject:"New message from"',
+      maxResults: 500
+    });
+
+    if (!data.messages || data.messages.length === 0) {
+      allEnquiries = [];
+      renderAll();
+      showApp();
+      return;
+    }
+
+    // Fetch all messages in parallel, batched by 10
+    const ids = data.messages.map(m => m.id);
+    const batches = [];
+    for (let i = 0; i < ids.length; i += 10) batches.push(ids.slice(i, i + 10));
+
+    const allMessages = [];
+    for (const batch of batches) {
+      const results = await Promise.all(
+        batch.map(id => gmailFetch('users/me/messages/' + id, { format: 'full' }).catch(e => null))
+      );
+      allMessages.push(...results.filter(Boolean));
+    }
+
+    // Parse
+    const parsed = allMessages.map(parseMessage).filter(Boolean);
+
+    // Deduplicate
+    const seen = {};
+    const deduped = [];
+    for (const e of parsed) {
+      const key = e.email.toLowerCase() + '::' + e.eventDate.replace(/\s/g, '').toLowerCase();
+      if (!seen[key]) { seen[key] = true; deduped.push(e); }
+    }
+
+    // Sort newest first
+    deduped.sort((a, b) => b.ts - a.ts);
+
+    // Filter deleted
+    allEnquiries = deduped.filter(e => !deleted[e.id]);
+
+    renderAll();
+    showApp();
+
+  } catch(e) {
+    if (e.code === 401) {
+      // Token expired, re-auth
+      accessToken = null;
+      setSplashMsg('Session expired, signing in again…');
+      tokenClient.requestAccessToken({ prompt: 'select_account' });
+    } else {
+      showError('Failed to load emails: ' + e.message);
+    }
+  } finally {
+    document.getElementById('refresh-btn').textContent = '↻ Refresh';
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+// ─── EMAIL PARSING ────────────────────────────────────────────────────────────
+function decodeBase64url(str) {
+  try {
+    return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  } catch(e) { return ''; }
+}
+
+function getHtmlBody(parts) {
+  if (!parts) return '';
+  for (const p of parts) {
+    if (p.mimeType === 'text/html' && p.body && p.body.data) return decodeBase64url(p.body.data);
+    if (p.parts) { const r = getHtmlBody(p.parts); if (r) return r; }
+  }
+  return '';
+}
+
+function parseMessage(msg) {
+  try {
+    const headers = {};
+    (msg.payload.headers || []).forEach(h => headers[h.name.toLowerCase()] = h.value);
+
+    const subject = headers['subject'] || '';
+    const dateStr = headers['date'] || '';
+    const ts = new Date(dateStr).getTime() || msg.internalDate * 1;
+    const threadId = msg.threadId || msg.id;
+
+    // Get HTML body
+    let html = '';
+    if (msg.payload.mimeType === 'text/html' && msg.payload.body && msg.payload.body.data) {
+      html = decodeBase64url(msg.payload.body.data);
+    } else {
+      html = getHtmlBody(msg.payload.parts || []);
+    }
+
+    if (!html) return null;
+
+    // Parse fields from <p><b>Field:</b> Value</p>
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const fields = {};
+    doc.querySelectorAll('p').forEach(p => {
+      const b = p.querySelector('b');
+      if (!b) return;
+      const key = b.textContent.replace(':', '').trim().toLowerCase();
+      const val = p.textContent.replace(b.textContent, '').trim();
+      if (val) fields[key] = val;
+    });
+
+    // Also try table-based format
+    doc.querySelectorAll('tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td, th');
+      if (cells.length >= 2) {
+        const key = cells[0].textContent.replace(':', '').trim().toLowerCase();
+        const val = cells[1].textContent.trim();
+        if (key && val) fields[key] = val;
+      }
+    });
+
+    const firstName = fields['first name'] || fields['firstname'] || '';
+    const lastName  = fields['last name']  || fields['lastname']  || '';
+    const name = (firstName + ' ' + lastName).trim() || subject.replace('New message from', '').trim() || 'Unknown';
+
+    const email = fields['email'] || fields['email address'] || '';
+    const phone = fields['contact number'] || fields['phone'] || fields['telephone'] || fields['mobile'] || '';
+    const eventDate = fields['event date'] || fields['date'] || '';
+    const startTime = fields['start time'] || '';
+    const endTime   = fields['end time'] || '';
+    const venue     = fields['venue location'] || fields['venue'] || '';
+    const guests    = fields['number of guests'] || fields['guests'] || '';
+    const service   = fields['service required'] || fields['service'] || '';
+    const house1    = fields['house coverage'] || '';
+    const house2    = fields['2nd house coverage'] || fields['second house coverage'] || '';
+    const eventType = fields['event type'] || '';
+    const additional = fields['any additional information'] || fields['additional information'] || fields['additional'] || '';
+
+    const id = msg.id;
+    const gmailUrl = 'https://mail.google.com/mail/u/0/#inbox/' + threadId;
+
+    // Received date (nice format)
+    const d = new Date(ts);
+    const dateReceived = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    return { id, ts, name, email, phone, eventDate, startTime, endTime,
+             venue, guests, service, house1, house2, eventType, additional,
+             dateReceived, gmailUrl, subject };
+  } catch(e) {
+    return null;
+  }
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderAll() {
+  renderEnquiries();
+  renderCalls();
+  renderBookings();
+}
+
+function getStatus(id) { return statuses[id] || 'New'; }
+function getStatusClass(s) {
+  return { 'New':'new','Quoted':'quoted','Interested':'interested','Booked':'booked','Not Interested':'not-interested','No Reply':'no-reply' }[s] || 'new';
+}
+
+function renderEnquiries() {
+  const q = (document.getElementById('enq-search').value || '').toLowerCase();
+  const f = document.getElementById('enq-filter').value;
+
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  let rows = allEnquiries.filter(e => {
+    const st = getStatus(e.id);
+    if (f && st !== f) return false;
+    // Only apply 30-day filter when not searching
+    if (!q && e.ts < thirtyDaysAgo) return false;
+    if (q) {
+      const hay = (e.name + e.email + e.venue + e.service + e.eventDate).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Show hint when searching beyond 30 days
+  const hint = document.getElementById('search-hint');
+  if (hint) hint.textContent = q ? 'Searching all time — ' + rows.length + ' result' + (rows.length !== 1 ? 's' : '') : '';
+
+  document.getElementById('enq-badge').textContent = rows.length;
+
+  const tbody = document.getElementById('enq-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No enquiries found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(e => {
+    const st = getStatus(e.id);
+    const q = quotes[e.id] || '';
+    return `<tr>
+      <td class="name-cell"><a href="#" onclick="openModal('${e.id}');return false;" style="color:var(--text);text-decoration:none;">${esc(e.name)}</a></td>
+      <td>${esc(e.service)}</td>
+      <td class="date-cell">${esc(e.eventDate)}</td>
+      <td>${esc(e.venue)}</td>
+      <td class="date-cell">${esc(e.dateReceived)}</td>
+      <td>
+        <div class="quote-wrap">
+          <input class="quote-input" type="number" placeholder="0" value="${esc(q)}" id="qi-${e.id}" onkeydown="if(event.key==='Enter')saveQuote('${e.id}')">
+          <button class="save-btn" onclick="saveQuote('${e.id}')">Save</button>
+        </div>
+      </td>
+      <td>
+        <select class="status-select ${getStatusClass(st)}" onchange="setStatus('${e.id}',this.value)">
+          ${['New','Quoted','Interested','Booked','Not Interested','No Reply'].map(s=>`<option${s===st?' selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td><button class="del-btn" onclick="deleteRow('${e.id}')" title="Remove">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCalls() {
+  const now = Date.now();
+  const cutoff = now - 14 * 24 * 60 * 60 * 1000;
+
+  let rows = allEnquiries.filter(e => e.ts >= cutoff);
+
+  // Sort by urgency desc (oldest first = most urgent)
+  rows.sort((a, b) => a.ts - b.ts);
+
+  document.getElementById('call-badge').textContent = rows.length;
+
+  const tbody = document.getElementById('call-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No calls to make</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(e => {
+    const hoursAgo = (now - e.ts) / (1000 * 60 * 60);
+    const dot = hoursAgo > 48 ? 'dot-red' : hoursAgo > 24 ? 'dot-amber' : 'dot-green';
+    const log = callLogs[e.id] || {};
+    const outcome = log.outcome || '';
+    const notes = log.notes || '';
+    return `<tr>
+      <td><span class="urgency-dot ${dot}"></span>${hoursAgo > 48 ? '48h+' : hoursAgo > 24 ? '24-48h' : '<24h'}</td>
+      <td class="name-cell">${esc(e.name)}</td>
+      <td>${esc(e.phone)}</td>
+      <td>${esc(e.service)}</td>
+      <td class="date-cell">${esc(e.eventDate)}</td>
+      <td>
+        <select class="outcome-select" onchange="setOutcome('${e.id}',this.value)">
+          <option value="">—</option>
+          ${['No Answer','Interested','Not Interested','Call Back','Booked'].map(o=>`<option${o===outcome?' selected':''}>${o}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <input class="notes-input" type="text" placeholder="Add note…" value="${esc(notes)}" onblur="setNotes('${e.id}',this.value)">
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderBookings() {
+  const booked = allEnquiries.filter(e => getStatus(e.id) === 'Booked' && !bookDeleted[e.id]);
+  document.getElementById('book-badge').textContent = booked.length;
+
+  // Stats
+  const pending = booked.filter(e => (payments[e.id] || 'Pending') === 'Pending').length;
+  const depPaid  = booked.filter(e => payments[e.id] === 'Deposit Paid').length;
+  const fullPaid = booked.filter(e => payments[e.id] === 'Fully Paid').length;
+  document.getElementById('book-stats').innerHTML = `
+    <div class="stat-card"><label>Total Booked</label><div class="val">${booked.length}</div></div>
+    <div class="stat-card"><label>Pending</label><div class="val" style="color:var(--amber)">${pending}</div></div>
+    <div class="stat-card"><label>Deposit Paid</label><div class="val" style="color:#6ab4ff">${depPaid}</div></div>
+    <div class="stat-card"><label>Fully Paid</label><div class="val" style="color:var(--green)">${fullPaid}</div></div>
+  `;
+
+  const tbody = document.getElementById('book-body');
+  if (!booked.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No bookings yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = booked.map(e => {
+    const q = parseFloat(quotes[e.id]) || 0;
+    const dep = parseFloat(deposits[e.id]) || 0;
+    const bal = q - dep;
+    const pay = payments[e.id] || 'Pending';
+    const depDate = depositDates[e.id] || '';
+    const balDate = balanceDates[e.id] || '';
+
+    // Deposit date row — shown if deposit is saved
+    const depDateHtml = dep > 0 ? `
+      <div class="date-label">Paid on:
+        <input class="date-input" type="date" value="${esc(depDate)}" onchange="setDepositDate('${e.id}',this.value)" title="Date deposit was received">
+      </div>` : '';
+
+    // Balance date row — shown if Fully Paid
+    const balDateHtml = pay === 'Fully Paid' ? `
+      <div class="date-label">Paid on:
+        <input class="date-input" type="date" value="${esc(balDate)}" onchange="setBalanceDate('${e.id}',this.value)" title="Date balance was received">
+      </div>` : '';
+
+    return `<tr>
+      <td class="name-cell">${esc(e.name)}</td>
+      <td>${esc(e.phone)}</td>
+      <td class="date-cell">${esc(e.eventDate)}</td>
+      <td>${esc(e.venue)}</td>
+      <td>${esc(e.service)}</td>
+      <td>£${q ? q.toLocaleString() : '—'}</td>
+      <td>
+        <div class="quote-wrap">
+          <input class="deposit-input" type="number" placeholder="0" value="${esc(deposits[e.id]||'')}" id="di-${e.id}" onkeydown="if(event.key==='Enter')saveDeposit('${e.id}')">
+          <button class="save-btn" onclick="saveDeposit('${e.id}')">Save</button>
+        </div>
+        ${depDateHtml}
+      </td>
+      <td class="balance">
+        £${q ? bal.toLocaleString() : '—'}
+        ${balDateHtml}
+      </td>
+      <td>
+        <select class="payment-select" onchange="setPayment('${e.id}',this.value)">
+          ${['Pending','Deposit Paid','Fully Paid'].map(p=>`<option${p===pay?' selected':''}>${p}</option>`).join('')}
+        </select>
+      </td>
+      <td><button class="del-btn" onclick="deleteBooking('${e.id}')" title="Remove booking">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+function saveQuote(id) {
+  const val = document.getElementById('qi-' + id).value;
+  quotes[id] = val;
+  if (val && getStatus(id) === 'New') { statuses[id] = 'Quoted'; }
+  saveAll(); renderAll();
+}
+
+function setStatus(id, val) {
+  statuses[id] = val; saveAll(); renderAll();
+}
+
+function deleteRow(id) {
+  deleted[id] = true; saveAll();
+  allEnquiries = allEnquiries.filter(e => e.id !== id);
+  renderAll();
+}
+
+function setOutcome(id, val) {
+  if (!callLogs[id]) callLogs[id] = {};
+  callLogs[id].outcome = val; saveAll();
+  if (val === 'Booked') { statuses[id] = 'Booked'; renderAll(); }
+}
+
+function setNotes(id, val) {
+  if (!callLogs[id]) callLogs[id] = {};
+  callLogs[id].notes = val; saveAll();
+}
+
+function saveDeposit(id) {
+  deposits[id] = document.getElementById('di-' + id).value;
+  saveAll(); renderBookings();
+}
+
+function setPayment(id, val) {
+  payments[id] = val; saveAll(); renderBookings();
+}
+
+function deleteBooking(id) {
+  if (!confirm('Remove this booking? The enquiry will still exist but will no longer appear in Bookings.')) return;
+  bookDeleted[id] = true;
+  saveAll(); renderBookings();
+}
+
+function setDepositDate(id, val) {
+  depositDates[id] = val; saveAll();
+}
+
+function setBalanceDate(id, val) {
+  balanceDates[id] = val; saveAll();
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+let modalId = null;
+function openModal(id) {
+  const e = allEnquiries.find(x => x.id === id);
+  if (!e) return;
+  modalId = id;
+  document.getElementById('m-name').textContent = e.name;
+  document.getElementById('m-meta').innerHTML = [
+    e.dateReceived ? 'Received ' + e.dateReceived : '',
+    e.email,
+    e.phone
+  ].filter(Boolean).map(s => '<span>' + esc(s) + '</span>').join('');
+
+  const fields = [
+    ['Email', e.email], ['Phone', e.phone],
+    ['Event Date', e.eventDate], ['Event Type', e.eventType],
+    ['Start Time', e.startTime], ['End Time', e.endTime],
+    ['Venue', e.venue], ['House Coverage', e.house1],
+    ['2nd House Coverage', e.house2], ['Guests', e.guests],
+    ['Service', e.service], ['Additional Info', e.additional]
+  ].filter(f => f[1]);
+
+  document.getElementById('m-grid').innerHTML = fields.map(f =>
+    `<div class="detail-item"><label>${esc(f[0])}</label><p>${esc(f[1])}</p></div>`
+  ).join('');
+
+  const notesWrap = document.getElementById('m-notes-wrap');
+  const log = callLogs[id];
+  if (log && log.notes) {
+    document.getElementById('m-notes').textContent = log.notes;
+    notesWrap.style.display = 'block';
+  } else {
+    notesWrap.style.display = 'none';
+  }
+
+  document.getElementById('m-thread').href = e.gmailUrl;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(ev) { if (ev.target === document.getElementById('modal')) closeModalDirect(); }
+function closeModalDirect() { document.getElementById('modal').classList.remove('open'); modalId = null; }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', initAuth);
+</script>
+</body>
+</html>
